@@ -11,24 +11,26 @@ import (
 
 	"github.com/omerbeden/paymentgateway/internal/adapter/handler/http/routes"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/cache"
+	"github.com/omerbeden/paymentgateway/internal/infrastructure/config"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/database"
 )
 
 func main() {
 
-	db, err := database.NewPostgres("")
+	appConfig := config.Load()
+	db, err := database.NewPostgres(appConfig.DatabaseDSN)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
 
-	redis := cache.NewRedis("")
+	redis := cache.NewRedis(appConfig.RedisAddr)
 	defer redis.Close()
 
 	router := routes.SetupRoutes(db, redis)
 
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":" + appConfig.ServerPort,
 		Handler: router,
 	}
 
