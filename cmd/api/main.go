@@ -16,10 +16,16 @@ import (
 
 func main() {
 
-	database := database.NewPostgres()
-	redis := cache.NewRedis()
+	db, err := database.NewPostgres("")
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
 
-	router := routes.SetupRoutes(database, redis)
+	redis := cache.NewRedis("")
+	defer redis.Close()
+
+	router := routes.SetupRoutes(db, redis)
 
 	srv := &http.Server{
 		Addr:    ":8080",

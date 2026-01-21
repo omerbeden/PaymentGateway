@@ -1,7 +1,31 @@
 package database
 
-import "database/sql"
+import (
+	"database/sql"
+	"fmt"
+	"time"
 
-func NewPostgres() *sql.DB {
-	return &sql.DB{}
+	_ "github.com/lib/pq"
+)
+
+func NewPostgres(dsn string) (*sql.DB, error) {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	configureConnectionPool(db)
+
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	return db, nil
+}
+
+func configureConnectionPool(db *sql.DB) {
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetConnMaxLifetime(25 * time.Second)
 }
