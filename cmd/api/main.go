@@ -10,11 +10,16 @@ import (
 	"time"
 
 	"github.com/omerbeden/paymentgateway/internal/adapter/handler/http/routes"
+	"github.com/omerbeden/paymentgateway/internal/infrastructure/cache"
+	"github.com/omerbeden/paymentgateway/internal/infrastructure/database"
 )
 
 func main() {
 
-	router := routes.SetupRoutes()
+	database := database.NewPostgres()
+	redis := cache.NewRedis()
+
+	router := routes.SetupRoutes(database, redis)
 
 	srv := &http.Server{
 		Addr:    ":8080",
