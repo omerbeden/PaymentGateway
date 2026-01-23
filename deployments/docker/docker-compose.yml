@@ -29,7 +29,7 @@ services:
       timeout: 5s
       retries: 5
   pgadmin:
-    image: dpage/pgadmin4
+    image: dpage/pgadmin4:8.9
     container_name: payment_gateway_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
