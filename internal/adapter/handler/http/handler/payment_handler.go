@@ -21,7 +21,6 @@ func NewPaymentHandler(createPaymentUC *payment.CreatePaymentUseCase) *PaymentHa
 type CreatePaymentRequest struct {
 	Amount     float64           `json:"amount" binding:"required,gt=0"`
 	Currency   string            `json:"currency" binding:"required,oneof=USD EUR TRY GBP"`
-	MerchantID string            `json:"merchant_id" binding:"required"`
 	ProviderID string            `json:"provider_id" binding:"required"`
 	Metadata   map[string]string `json:"metadata"`
 }
