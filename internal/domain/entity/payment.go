@@ -8,7 +8,6 @@ type Payment struct {
 	ID             string            `json:"id"`
 	Amount         float64           `json:"amount"`
 	Currency       string            `json:"currency"`
-	MerchantID     string            `json:"merchant_id"`
 	IdempotencyKey string            `json:"idempotency_key"`
 	ProviderID     string            `json:"provider_id"`
 	Status         PaymentStatus     `json:"status"`

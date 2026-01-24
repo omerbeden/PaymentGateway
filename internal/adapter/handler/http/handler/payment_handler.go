@@ -19,12 +19,11 @@ func NewPaymentHandler(createPaymentUC *payment.CreatePaymentUseCase) *PaymentHa
 }
 
 type CreatePaymentRequest struct {
-	Amount        int64             `json:"amount" binding:"required,gt=0"`
-	Currency      string            `json:"currency" binding:"required,oneof=USD EUR TRY GBP"`
-	Description   string            `json:"description"`
-	CustomerEmail string            `json:"customer_email" binding:"required,email"`
-	CustomerID    string            `json:"customer_id"`
-	Metadata      map[string]string `json:"metadata"`
+	Amount     float64           `json:"amount" binding:"required,gt=0"`
+	Currency   string            `json:"currency" binding:"required,oneof=USD EUR TRY GBP"`
+	MerchantID string            `json:"merchant_id" binding:"required"`
+	ProviderID string            `json:"provider_id" binding:"required"`
+	Metadata   map[string]string `json:"metadata"`
 }
 
 type CreatePaymentResponse struct {
@@ -44,12 +43,9 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 	}
 
 	payment, err := h.createPaymentUC.Execute(c.Request.Context(), payment.CreatePaymentInput{
-		Amount:        req.Amount,
-		Currency:      req.Currency,
-		Description:   req.Description,
-		CustomerEmail: req.CustomerEmail,
-		CustomerID:    req.CustomerID,
-		Metadata:      req.Metadata,
+		Amount:   req.Amount,
+		Currency: req.Currency,
+		Metadata: req.Metadata,
 	})
 	if err != nil {
 		//h.log.Error("Failed to create payment", "error", err)

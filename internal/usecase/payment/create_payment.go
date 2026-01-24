@@ -19,19 +19,20 @@ func NewCreatePaymentUseCase(paymentRepo repository.PaymentRepository) *CreatePa
 }
 
 type CreatePaymentInput struct {
-	MerchantID     string
 	IdempotencyKey string
-	Amount         int64
+	Amount         float64
 	Currency       string
-	Description    string
-	CustomerEmail  string
-	CustomerID     string
 	Metadata       map[string]string
 }
 
 func (uc *CreatePaymentUseCase) Execute(ctx context.Context, input CreatePaymentInput) (*entity.Payment, error) {
 
-	payment := &entity.Payment{}
+	payment := &entity.Payment{
+		Amount:   input.Amount,
+		Currency: input.Currency,
+		Metadata: input.Metadata,
+		Status:   entity.PaymentStatusPending,
+	}
 	if err := uc.paymentRepo.CreatePayment(ctx, payment); err != nil {
 		return nil, fmt.Errorf("failed to create payment: %w", err)
 	}

@@ -20,8 +20,8 @@ func NewPaymentRepository(db *sql.DB) *PaymentRepository {
 }
 
 func (r *PaymentRepository) CreatePayment(ctx context.Context, payment *entity.Payment) error {
-	query := `INSERT INTO payments (id, amount, currency, merchant_id, idempotency_key, provider_id, status, created_at, updated_at, expires_at,metadata)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+	query := `INSERT INTO payments (id, amount, currency, idempotency_key, provider_id, status, created_at, updated_at, expires_at,metadata)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
 	jsonMetadata, err := json.Marshal(payment.Metadata)
 	if err != nil {
@@ -32,7 +32,6 @@ func (r *PaymentRepository) CreatePayment(ctx context.Context, payment *entity.P
 		payment.ID,
 		payment.Amount,
 		payment.Currency,
-		payment.MerchantID,
 		payment.IdempotencyKey,
 		payment.ProviderID,
 		payment.Status,
