@@ -27,7 +27,7 @@ func main() {
 	redis := cache.NewRedis(appConfig.RedisAddr)
 	defer redis.Close()
 
-	router := routes.SetupRoutes(db, redis)
+	router := routes.SetupRoutes(db, redis, appConfig)
 
 	srv := &http.Server{
 		Addr:    ":" + appConfig.ServerPort,

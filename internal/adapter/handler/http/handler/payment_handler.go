@@ -42,9 +42,10 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 	}
 
 	payment, err := h.createPaymentUC.Execute(c.Request.Context(), payment.CreatePaymentInput{
-		Amount:   req.Amount,
-		Currency: req.Currency,
-		Metadata: req.Metadata,
+		Amount:     req.Amount,
+		Currency:   req.Currency,
+		Metadata:   req.Metadata,
+		ProviderID: req.ProviderID,
 	})
 	if err != nil {
 		//h.log.Error("Failed to create payment", "error", err)
