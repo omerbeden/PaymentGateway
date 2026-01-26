@@ -57,6 +57,40 @@ func (r *PaymentRepository) CreatePayment(ctx context.Context, payment *entity.P
 func (r *PaymentRepository) GetPaymentStatus(ctx context.Context, paymentID string) (entity.PaymentStatus, error) {
 	return entity.PaymentStatusPending, nil
 }
+func (r *PaymentRepository) UpdatePayment(ctx context.Context, payment *entity.Payment) error {
+	query := `UPDATE payments SET 
+	amount=$1,
+	currency=$2, 
+	idempotency_key=$3, 
+	provider_id=$4, 
+	status=$5, 
+	updated_at=$6, 
+	expires_at=$7, 
+	metadata=$8 WHERE id=$9`
+
+	jsonMetadata, err := json.Marshal(payment.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	_, err = r.db.ExecContext(ctx, query,
+		payment.Amount,
+		payment.Currency,
+		payment.IdempotencyKey,
+		payment.ProviderID,
+		payment.Status,
+		payment.UpdatedAt,
+		payment.ExpiresAt,
+		jsonMetadata,
+		payment.ID)
+
+	if err != nil {
+		return fmt.Errorf("failed to update payment: %w", err)
+	}
+
+	return nil
+
+}
 
 var (
 	ErrPaymentNotFound         = errors.New("payment not found")

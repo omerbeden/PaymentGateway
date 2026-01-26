@@ -48,13 +48,19 @@ func (uc *CreatePaymentUseCase) Execute(ctx context.Context, input CreatePayment
 
 	result, err := provider.CreatePayment(ctx, payment)
 	if err != nil {
-		//update payment status to failed in repository (not implemented here)
+		payment.Status = entity.PaymentStatusFailed
+		if err := uc.paymentRepo.UpdatePayment(ctx, payment); err != nil {
+			return nil, fmt.Errorf("failed to update payment after provider failure: %w", err)
+		}
 		return nil, fmt.Errorf("provider failed to create payment: %w", err)
 	}
 
 	payment.Status = result.Status
 	payment.Metadata = result.Metadata
-	//update payment in repository with new status and metadata (not implemented here)
+
+	if err := uc.paymentRepo.UpdatePayment(ctx, payment); err != nil {
+		return nil, fmt.Errorf("failed to update payment: %w", err)
+	}
 
 	return payment, nil
 }
