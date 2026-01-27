@@ -2,23 +2,22 @@ package provider
 
 import (
 	"fmt"
-
-	"github.com/omerbeden/paymentgateway/internal/infrastructure/config"
 )
 
 type Factory struct {
 	providers map[string]PaymentProvider
 }
 
-func NewProviderFactory(cfg *config.Config) *Factory {
+func NewProviderFactory() *Factory {
 	factory := &Factory{
 		providers: make(map[string]PaymentProvider),
 	}
 
-	if cfg.Paypal.Enabled {
-		factory.providers["paypal"] = NewPaypalProvider(cfg.Paypal)
-	}
 	return factory
+}
+
+func (f *Factory) RegisterProvider(providerID string, provider PaymentProvider) {
+	f.providers[providerID] = provider
 }
 
 func (f *Factory) GetProvider(providerID string) (PaymentProvider, error) {

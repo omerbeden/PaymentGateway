@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/omerbeden/paymentgateway/internal/adapter/handler/http/handler"
 	"github.com/omerbeden/paymentgateway/internal/adapter/provider"
+	"github.com/omerbeden/paymentgateway/internal/adapter/provider/paypal"
 	"github.com/omerbeden/paymentgateway/internal/adapter/repository/postgres"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/config"
 	"github.com/omerbeden/paymentgateway/internal/usecase/payment"
@@ -17,7 +18,10 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engin
 
 	paymentRepository := postgres.NewPaymentRepository(db)
 
-	providerFactory := provider.NewProviderFactory(cfg)
+	providerFactory := provider.NewProviderFactory()
+	if cfg.Paypal.Enabled {
+		providerFactory.RegisterProvider("paypal", paypal.NewProvider(cfg.Paypal))
+	}
 	createPaymentUC := payment.NewCreatePaymentUseCase(paymentRepository, providerFactory)
 
 	healthHandler := handler.NewHealthHandler(db, redis)
