@@ -10,6 +10,7 @@ import (
 	"github.com/omerbeden/paymentgateway/internal/adapter/repository/postgres"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/config"
 	"github.com/omerbeden/paymentgateway/internal/usecase/payment"
+	"github.com/omerbeden/paymentgateway/internal/usecase/webhook"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -22,10 +23,13 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engin
 	if cfg.Paypal.Enabled {
 		providerFactory.RegisterProvider("paypal", paypal.NewProvider(cfg.Paypal))
 	}
+
 	createPaymentUC := payment.NewCreatePaymentUseCase(paymentRepository, providerFactory)
+	webhookUC := webhook.NewProcessWebHookUseCase(paymentRepository, providerFactory)
 
 	healthHandler := handler.NewHealthHandler(db, redis)
 	paymentHandler := handler.NewPaymentHandler(createPaymentUC)
+	webhookHandler := handler.NewWebhookHandler(webhookUC)
 
 	r.GET("/health", healthHandler.Health)
 	r.GET("/ready", healthHandler.Ready)
@@ -35,6 +39,11 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engin
 		payments := v1.Group("/payments")
 		{
 			payments.POST("/payments", paymentHandler.CreatePayment)
+		}
+
+		webhooks := v1.Group("/webhooks")
+		{
+			webhooks.POST("/paypal", webhookHandler.HandlePaypal)
 		}
 	}
 

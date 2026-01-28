@@ -96,3 +96,13 @@ func (p *Provider) CreatePayment(ctx context.Context, payment *entity.Payment) (
 		Metadata:          map[string]string{},
 	}, nil
 }
+
+func (p *Provider) VerifyWebhook(payload []byte, signature string) error {
+	// Implement webhook verification logic here
+	return nil
+}
+
+func (p *Provider) ParseWebhook(payload []byte) (*provider.WebhookEvent, error) {
+	// Implement webhook parsing logic here
+	return &provider.WebhookEvent{}, nil
+}
