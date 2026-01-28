@@ -54,9 +54,45 @@ func (r *PaymentRepository) CreatePayment(ctx context.Context, payment *entity.P
 
 }
 
-func (r *PaymentRepository) GetPaymentStatus(ctx context.Context, paymentID string) (entity.PaymentStatus, error) {
-	return entity.PaymentStatusPending, nil
+func (r *PaymentRepository) GetByProviderPaymentID(ctx context.Context, providerPaymentID, providerID string) (*entity.Payment, error) {
+
+	query := `SELECT * FROM payments WHERE provider_payment_id=$1 AND provider_id=$2`
+	row := r.db.QueryRowContext(ctx, query, providerPaymentID, providerID)
+
+	var p entity.Payment
+	var metadataBytes []byte
+
+	err := row.Scan(
+		&p.ID,
+		&p.Amount,
+		&p.Currency,
+		&p.IdempotencyKey,
+		&p.ProviderID,
+		&p.ProviderPaymentID,
+		&p.Status,
+		&p.CreatedAt,
+		&p.UpdatedAt,
+		&p.ExpiresAt,
+		&metadataBytes,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrPaymentNotFound
+		}
+		return nil, fmt.Errorf("failed to get payment: %w", err)
+	}
+
+	if len(metadataBytes) > 0 {
+		var metadata map[string]string
+		if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+		}
+		p.Metadata = metadata
+	}
+
+	return &p, nil
 }
+
 func (r *PaymentRepository) UpdatePayment(ctx context.Context, payment *entity.Payment) error {
 	query := `UPDATE payments SET 
 	amount=$1,

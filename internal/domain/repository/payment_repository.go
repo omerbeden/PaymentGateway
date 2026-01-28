@@ -8,6 +8,6 @@ import (
 
 type PaymentRepository interface {
 	CreatePayment(ctx context.Context, payment *entity.Payment) error
-	GetPaymentStatus(ctx context.Context, paymentID string) (entity.PaymentStatus, error)
+	GetByProviderPaymentID(ctx context.Context, providerPaymentID, providerID string) (*entity.Payment, error)
 	UpdatePayment(ctx context.Context, payment *entity.Payment) error
 }

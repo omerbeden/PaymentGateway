@@ -693,3 +693,210 @@ func TestUpdatePayment_LargeAmount(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestGetByProviderPaymentID_Success(t *testing.T) {
+	// Arrange
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewPaymentRepository(db)
+	ctx := context.Background()
+
+	now := time.Now()
+	payment := &entity.Payment{
+		ID:                "pay_123456",
+		Amount:            99.99,
+		Currency:          "USD",
+		IdempotencyKey:    "idem_key_123",
+		ProviderID:        "provider_123",
+		ProviderPaymentID: "provider_pay_123",
+		Status:            entity.PaymentStatusSucceeded,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+		ExpiresAt:         now.Add(24 * time.Hour),
+		Metadata: map[string]string{
+			"order_id": "order_123",
+		},
+	}
+
+	rows := sqlmock.NewRows([]string{"id", "amount", "currency", "idempotency_key", "provider_id", "provider_payment_id", "status", "created_at", "updated_at", "expires_at", "metadata"}).
+		AddRow(payment.ID, payment.Amount, payment.Currency, payment.IdempotencyKey, payment.ProviderID, payment.ProviderPaymentID, payment.Status, payment.CreatedAt, payment.UpdatedAt, payment.ExpiresAt, `{"order_id":"order_123"}`)
+
+	mock.ExpectQuery(`SELECT \* FROM payments WHERE provider_payment_id=\$1 AND provider_id=\$2`).
+		WithArgs(payment.ProviderPaymentID, payment.ProviderID).
+		WillReturnRows(rows)
+
+	// Act
+	result, err := repo.GetByProviderPaymentID(ctx, payment.ProviderPaymentID, payment.ProviderID)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, payment.ID, result.ID)
+	assert.Equal(t, payment.Amount, result.Amount)
+	assert.Equal(t, payment.Currency, result.Currency)
+	assert.Equal(t, payment.ProviderID, result.ProviderID)
+	assert.Equal(t, payment.Status, result.Status)
+	assert.Equal(t, payment.Metadata, result.Metadata)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGetByProviderPaymentID_NotFound(t *testing.T) {
+	// Arrange
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewPaymentRepository(db)
+	ctx := context.Background()
+
+	mock.ExpectQuery(`SELECT \* FROM payments WHERE provider_payment_id=\$1 AND provider_id=\$2`).
+		WithArgs("nonexistent_pay", "provider_123").
+		WillReturnError(sql.ErrNoRows)
+
+	// Act
+	result, err := repo.GetByProviderPaymentID(ctx, "nonexistent_pay", "provider_123")
+
+	// Assert
+	assert.Equal(t, ErrPaymentNotFound, err)
+	assert.Nil(t, result)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGetByProviderPaymentID_WrongProvider(t *testing.T) {
+	// Arrange
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewPaymentRepository(db)
+	ctx := context.Background()
+
+	mock.ExpectQuery(`SELECT \* FROM payments WHERE provider_payment_id=\$1 AND provider_id=\$2`).
+		WithArgs("provider_pay_456", "wrong_provider").
+		WillReturnError(sql.ErrNoRows)
+
+	// Act
+	result, err := repo.GetByProviderPaymentID(ctx, "provider_pay_456", "wrong_provider")
+
+	// Assert
+	assert.Equal(t, ErrPaymentNotFound, err)
+	assert.Nil(t, result)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGetByProviderPaymentID_WithoutMetadata(t *testing.T) {
+	// Arrange
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewPaymentRepository(db)
+	ctx := context.Background()
+
+	now := time.Now()
+	paymentID := "pay_no_metadata"
+	providerPaymentID := "provider_pay_no_meta"
+	providerID := "provider_789"
+
+	rows := sqlmock.NewRows([]string{"id", "amount", "currency", "idempotency_key", "provider_id", "provider_payment_id", "status", "created_at", "updated_at", "expires_at", "metadata"}).
+		AddRow(paymentID, 50.00, "EUR", "idem_789", providerID, providerPaymentID, entity.PaymentStatusPending, now, now, now.Add(24*time.Hour), []byte(""))
+
+	mock.ExpectQuery(`SELECT \* FROM payments WHERE provider_payment_id=\$1 AND provider_id=\$2`).
+		WithArgs(providerPaymentID, providerID).
+		WillReturnRows(rows)
+
+	// Act
+	result, err := repo.GetByProviderPaymentID(ctx, providerPaymentID, providerID)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, paymentID, result.ID)
+	assert.Equal(t, 50.00, result.Amount)
+	assert.Nil(t, result.Metadata)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGetByProviderPaymentID_DatabaseError(t *testing.T) {
+	// Arrange
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewPaymentRepository(db)
+	ctx := context.Background()
+
+	mock.ExpectQuery(`SELECT \* FROM payments WHERE provider_payment_id=\$1 AND provider_id=\$2`).
+		WithArgs("provider_pay_error", "provider_123").
+		WillReturnError(sql.ErrConnDone)
+
+	// Act
+	result, err := repo.GetByProviderPaymentID(ctx, "provider_pay_error", "provider_123")
+
+	// Assert
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to get payment")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGetByProviderPaymentID_WithComplexMetadata(t *testing.T) {
+	// Arrange
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewPaymentRepository(db)
+	ctx := context.Background()
+
+	now := time.Now()
+	metadata := map[string]string{
+		"order_id":        "order_999",
+		"customer_id":     "cust_888",
+		"invoice_number":  "inv_777",
+		"transaction_ref": "txn_666",
+	}
+
+	rows := sqlmock.NewRows([]string{"id", "amount", "currency", "idempotency_key", "provider_id", "provider_payment_id", "status", "created_at", "updated_at", "expires_at", "metadata"}).
+		AddRow("pay_complex", 299.99, "GBP", "idem_complex", "provider_123", "provider_pay_complex", entity.PaymentStatusSucceeded, now, now, now.Add(24*time.Hour), `{"order_id":"order_999","customer_id":"cust_888","invoice_number":"inv_777","transaction_ref":"txn_666"}`)
+
+	mock.ExpectQuery(`SELECT \* FROM payments WHERE provider_payment_id=\$1 AND provider_id=\$2`).
+		WithArgs("provider_pay_complex", "provider_123").
+		WillReturnRows(rows)
+
+	// Act
+	result, err := repo.GetByProviderPaymentID(ctx, "provider_pay_complex", "provider_123")
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, "pay_complex", result.ID)
+	assert.Equal(t, metadata, result.Metadata)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGetByProviderPaymentID_FailedPaymentStatus(t *testing.T) {
+	// Arrange
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewPaymentRepository(db)
+	ctx := context.Background()
+
+	now := time.Now()
+
+	rows := sqlmock.NewRows([]string{"id", "amount", "currency", "idempotency_key", "provider_id", "provider_payment_id", "status", "created_at", "updated_at", "expires_at", "metadata"}).
+		AddRow("pay_failed", 75.50, "USD", "idem_failed", "provider_456", "provider_pay_failed", entity.PaymentStatusFailed, now, now, now.Add(24*time.Hour), `{"error":"insufficient_funds"}`)
+
+	mock.ExpectQuery(`SELECT \* FROM payments WHERE provider_payment_id=\$1 AND provider_id=\$2`).
+		WithArgs("provider_pay_failed", "provider_456").
+		WillReturnRows(rows)
+
+	// Act
+	result, err := repo.GetByProviderPaymentID(ctx, "provider_pay_failed", "provider_456")
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, entity.PaymentStatusFailed, result.Status)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
