@@ -17,7 +17,7 @@ func NewWebHookEventRepository(db *sql.DB) *WebHookEventRepository {
 }
 func (r *WebHookEventRepository) Save(ctx context.Context, event *entity.WebhookEvent) error {
 
-	query := `INSERT INTO webhook_events (name, provider_id,
+	query := `INSERT INTO webhook_events (provider_id,
 	 	provider_payment_id, event_type, signature, payload,
 		is_verified, is_processed, processing_error, received_at, processed_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
