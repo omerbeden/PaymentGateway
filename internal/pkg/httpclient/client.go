@@ -10,30 +10,42 @@ import (
 )
 
 type RequestParam[B any] struct {
-	Client *http.Client
-	Method string
-	URL    string
-	Body   *B
-	Ctx    context.Context
+	Client       *http.Client
+	Header       *http.Header
+	Method       string
+	URL          string
+	Body         B
+	Ctx          context.Context
+	ClientID     string
+	ClientSecret string
 }
 
 func MakeRequest[B, T any](p RequestParam[B], result T) error {
 
 	var body io.Reader
-	if p.Body != nil {
-		bodyBytes, err := json.Marshal(p.Body)
-		if err != nil {
-			return fmt.Errorf("failed to marshal request body: %w", err)
-		}
-		body = bytes.NewReader(bodyBytes)
+
+	bodyBytes, err := json.Marshal(p.Body)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body: %w", err)
 	}
+	body = bytes.NewReader(bodyBytes)
 
 	req, err := http.NewRequestWithContext(p.Ctx, p.Method, p.URL, body)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	if p.ClientID != "" && p.ClientSecret != "" {
+		req.SetBasicAuth(p.ClientID, p.ClientSecret)
+	}
+
+	if p.Header != nil {
+		for k, vv := range *p.Header {
+			for _, v := range vv {
+				req.Header.Add(k, v)
+			}
+		}
+	}
 
 	resp, err := p.Client.Do(req)
 	if err != nil {

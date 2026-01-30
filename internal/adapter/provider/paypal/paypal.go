@@ -2,6 +2,7 @@ package paypal
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -13,11 +14,18 @@ import (
 
 type Provider struct {
 	httpClient *http.Client
+	cfg        config.Paypal
 }
+
+const (
+	pathCreatePayment = "/v2/checkout/orders"
+	pathAuthz         = "/v1/oauth2/token"
+)
 
 func NewProvider(cfg config.Paypal) *Provider {
 	return &Provider{
 		httpClient: &http.Client{},
+		cfg:        cfg,
 	}
 }
 
@@ -69,19 +77,33 @@ func (p *Provider) CreatePayment(ctx context.Context, payment *entity.Payment) (
 					value         string
 				}{
 					currency_code: payment.Currency,
-					value:         "100.00",
+					value:         strconv.FormatFloat(payment.Amount, 'f', -1, 64),
 				},
 			},
 		},
 	}
 
+	// Fetch access token and set Authorization header
+	token, err := p.getAccessToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	headers := http.Header{}
+	headers.Set("Content-Type", "application/json")
+	headers.Set("Accept", "application/json")
+	headers.Set("Authorization", "Bearer "+token)
+
 	var response PayPalResponse
 	if err := httpclient.MakeRequest(httpclient.RequestParam[PaypalRequest]{
 		Client: p.httpClient,
-		Ctx:    ctx,
+		Header: &headers,
+
+		Ctx: ctx,
+
 		Method: http.MethodPost,
-		URL:    "url",
-		Body:   &body,
+		URL:    p.cfg.BaseURL + pathCreatePayment,
+		Body:   body,
 	}, &response); err != nil {
 		return nil, err
 	}
@@ -105,4 +127,38 @@ func (p *Provider) VerifyWebhook(payload []byte, signature string) error {
 func (p *Provider) ParseWebhook(payload []byte) (*provider.WebhookEvent, error) {
 	// Implement webhook parsing logic here
 	return &provider.WebhookEvent{}, nil
+}
+
+type accessTokenResponse struct {
+	Scope       string `json:"scope"`
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	AppId       string `json:"app_id"`
+	ExpiresIn   int    `json:"expires_in"`
+	Nonce       string `json:"nonce"`
+}
+
+func (p *Provider) getAccessToken(ctx context.Context) (string, error) {
+	url := p.cfg.BaseURL + pathAuthz
+	data := "grant_type=client_credentials"
+
+	header := http.Header{}
+	header.Set("Content-Type", "application/x-www-form-urlencoded")
+	header.Set("Accept", "application/json")
+
+	var response accessTokenResponse
+	if err := httpclient.MakeRequest(httpclient.RequestParam[string]{
+		Client:       p.httpClient,
+		Header:       &header,
+		Method:       http.MethodPost,
+		URL:          url,
+		Body:         data,
+		Ctx:          ctx,
+		ClientID:     p.cfg.ClientID,
+		ClientSecret: p.cfg.ClientSecret,
+	}, &response); err != nil {
+		return "", fmt.Errorf("failed to execute token request: %w", err)
+	}
+
+	return response.AccessToken, nil
 }

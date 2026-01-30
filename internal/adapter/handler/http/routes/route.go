@@ -21,7 +21,10 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engin
 
 	providerFactory := provider.NewProviderFactory()
 	if cfg.Paypal.Enabled {
-		providerFactory.RegisterProvider("paypal", paypal.NewProvider(cfg.Paypal))
+		if cfg.Environment == "developmet" {
+			cfg.Paypal.BaseURL = cfg.Paypal.SandBoxURL
+		}
+		providerFactory.RegisterProvider("paypal", paypal.NewProvider(*cfg.Paypal))
 	}
 
 	createPaymentUC := payment.NewCreatePaymentUseCase(paymentRepository, providerFactory)

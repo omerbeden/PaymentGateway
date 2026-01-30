@@ -9,11 +9,15 @@ type Config struct {
 	DatabaseDSN string
 	RedisAddr   string
 	ServerPort  string
-	Paypal      Paypal
+	Paypal      *Paypal
 }
 
 type Paypal struct {
-	Enabled bool
+	Enabled      bool
+	BaseURL      string
+	SandBoxURL   string
+	ClientID     string
+	ClientSecret string
 }
 
 func Load() *Config {
@@ -22,8 +26,12 @@ func Load() *Config {
 		DatabaseDSN: getEnv("DATABASE_DSN", "postgresql://postgres:postgres@localhost:5432/payment_gateway?sslmode=disable"),
 		RedisAddr:   getEnv("REDIS_ADDR", "localhost:6379"),
 		ServerPort:  getEnv("SERVER_PORT", "8080"),
-		Paypal: Paypal{
-			Enabled: getEnv("PAYPAL_ENABLED", "true") == "true",
+		Paypal: &Paypal{
+			Enabled:      getEnv("PAYPAL_ENABLED", "true") == "true",
+			BaseURL:      getEnv("PAYPAL_BASE_URL", "base_url"),
+			SandBoxURL:   getEnv("PAYPAL_SANDBOX_URL", "https://api-m.sandbox.paypal.com"),
+			ClientID:     getEnv("PAYPAL_CLIENT_ID", "client_id"),
+			ClientSecret: getEnv("PAYPAL_CLIENT_SECRET", "client_secret"),
 		},
 	}
 }
