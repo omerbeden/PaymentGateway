@@ -24,9 +24,8 @@ func NewProcessWebHookUseCase(paymentRepo repository.PaymentRepository, provider
 }
 
 type ProcessWebHookInput struct {
-	ProviderId string
-	Payload    []byte
-	Signature  string
+	ProviderId     string
+	WebhookContext *provider.WebhookContext
 }
 
 func (uc *ProcessWebHookUseCase) Execute(ctx context.Context, input ProcessWebHookInput) error {
@@ -36,12 +35,12 @@ func (uc *ProcessWebHookUseCase) Execute(ctx context.Context, input ProcessWebHo
 		return err
 	}
 
-	err = providerAdapter.VerifyWebhook(input.Payload, input.Signature)
+	err = providerAdapter.VerifyWebhook(ctx, input.WebhookContext)
 	if err != nil {
 		return err
 	}
 
-	webhookEvent, err := providerAdapter.ParseWebhook(input.Payload)
+	webhookEvent, err := providerAdapter.ParseWebhook(input.WebhookContext.Payload)
 	if err != nil {
 		return err
 	}
@@ -51,8 +50,8 @@ func (uc *ProcessWebHookUseCase) Execute(ctx context.Context, input ProcessWebHo
 		ProviderID:        input.ProviderId,
 		ProviderPaymentID: webhookEvent.ProviderPaymentID,
 		EventType:         webhookEvent.EventType,
-		Signature:         input.Signature,
-		Payload:           string(input.Payload),
+		Signature:         input.WebhookContext.Signature,
+		Payload:           string(input.WebhookContext.Payload),
 		IsVerified:        true,
 		IsProcessed:       false,
 		ReceivedAt:        time.Now(),

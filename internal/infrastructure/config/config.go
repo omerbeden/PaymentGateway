@@ -18,6 +18,7 @@ type Paypal struct {
 	SandBoxURL   string
 	ClientID     string
 	ClientSecret string
+	WebhookID    string
 }
 
 func Load() *Config {

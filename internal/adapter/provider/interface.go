@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/omerbeden/paymentgateway/internal/domain/entity"
@@ -9,7 +10,7 @@ import (
 
 type PaymentProvider interface {
 	CreatePayment(ctx context.Context, payment *entity.Payment) (*CreatePaymentResult, error)
-	VerifyWebhook(payload []byte, signature string) error
+	VerifyWebhook(ctx context.Context, webhookCtx *WebhookContext) error
 	ParseWebhook(payload []byte) (*WebhookEvent, error)
 }
 
@@ -23,6 +24,12 @@ type CreatePaymentResult struct {
 	Metadata          map[string]string
 	ErrorCode         string
 	ErrorMessage      string
+}
+
+type WebhookContext struct {
+	Payload   []byte
+	Headers   http.Header
+	Signature string
 }
 
 type WebhookEvent struct {

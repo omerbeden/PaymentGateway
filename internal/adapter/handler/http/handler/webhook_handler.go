@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/omerbeden/paymentgateway/internal/adapter/provider"
 	"github.com/omerbeden/paymentgateway/internal/usecase/webhook"
 )
 
@@ -25,9 +26,14 @@ func (h *WebhookHandler) HandlePaypal(c *gin.Context) {
 		return
 	}
 
+	webhookCtx := &provider.WebhookContext{
+		Payload:   payload,
+		Headers:   c.Request.Header,
+		Signature: c.GetHeader("PAYPAL-TRANSMISSION-SIG"),
+	}
 	input := webhook.ProcessWebHookInput{
-		ProviderId: "paypal",
-		Payload:    payload,
+		ProviderId:     "paypal",
+		WebhookContext: webhookCtx,
 	}
 
 	if err := h.weebhookUseCase.Execute(c.Request.Context(), input); err != nil {

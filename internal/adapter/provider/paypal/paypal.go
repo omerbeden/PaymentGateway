@@ -20,8 +20,9 @@ type Provider struct {
 }
 
 const (
-	pathCreatePayment = "/v2/checkout/orders"
-	pathAuthz         = "/v1/oauth2/token"
+	pathCreatePayment        = "/v2/checkout/orders"
+	pathAuthz                = "/v1/oauth2/token"
+	pathVerifyEventSignature = "/v1/notifications/verify-webhook-signature"
 )
 
 func NewProvider(cfg config.Paypal) *Provider {
@@ -68,9 +69,7 @@ func (p *Provider) CreatePayment(ctx context.Context, payment *entity.Payment) (
 	if err := httpclient.MakeRequest(httpclient.RequestParam[PaypalRequest]{
 		Client: p.httpClient,
 		Header: &headers,
-
-		Ctx: ctx,
-
+		Ctx:    ctx,
 		Method: http.MethodPost,
 		URL:    p.cfg.BaseURL + pathCreatePayment,
 		Body:   body,
@@ -89,9 +88,48 @@ func (p *Provider) CreatePayment(ctx context.Context, payment *entity.Payment) (
 	}, nil
 }
 
-func (p *Provider) VerifyWebhook(payload []byte, signature string) error {
-	// Implement webhook verification logic here
-	return nil
+func (p *Provider) VerifyWebhook(ctx context.Context, webhookCtx *provider.WebhookContext) error {
+
+	webhookID := p.cfg.WebhookID
+
+	body := PaypalVerifySignatureRequest{
+		webhook_id:        webhookID,
+		transmission_id:   webhookCtx.Headers.Get("TRANSMISSION-ID"),
+		transmission_time: webhookCtx.Headers.Get("PAYPAL-TRANSMISSION-TIME"),
+		cert_url:          webhookCtx.Headers.Get("PAYPAL-CERT-URL"),
+		auth_algo:         webhookCtx.Headers.Get("PAYPAL-AUTH-ALGO"),
+		transmission_sig:  webhookCtx.Signature,
+		webhook_event:     json.RawMessage(webhookCtx.Payload),
+	}
+
+	var response struct {
+		verification_status string
+	}
+
+	token, err := p.getAccessToken(context.Background())
+	if err != nil {
+		return err
+	}
+
+	headers := http.Header{}
+	headers.Set("Content-Type", "application/json")
+	headers.Set("Authorization", "Bearer "+token)
+
+	if err := httpclient.MakeRequest(httpclient.RequestParam[PaypalVerifySignatureRequest]{
+		Client: p.httpClient,
+		Header: &headers,
+		URL:    p.cfg.BaseURL + pathVerifyEventSignature,
+		Body:   body,
+	}, &response); err != nil {
+		return err
+	}
+
+	if response.verification_status == "SUCCESS" {
+		return nil
+	}
+
+	return fmt.Errorf("paypal webhook event verification failed")
+
 }
 
 func (p *Provider) ParseWebhook(payload []byte) (*provider.WebhookEvent, error) {
@@ -195,6 +233,16 @@ type PayPalResponse struct {
 		rel    string
 		method string
 	}
+}
+
+type PaypalVerifySignatureRequest struct {
+	webhook_id        string
+	transmission_id   string
+	transmission_time string
+	cert_url          string
+	auth_algo         string
+	transmission_sig  string
+	webhook_event     []byte
 }
 
 type PaypalWebhookEvent struct {
