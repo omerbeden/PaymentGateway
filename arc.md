@@ -5,21 +5,15 @@ payment-gateway/
 ├── cmd/
 │   ├── api/
 │   │   └── main.go                    # HTTP API server entry point
-│   ├── worker/
-│   │   └── main.go                    # Background worker entry point
-│   └── migrator/
-│       └── main.go                    # Database migration runner
 ├── internal/
 │   ├── domain/
 │   │   ├── entity/
 │   │   │   ├── payment.go             # Payment entity
 │   │   │   ├── transaction.go         # Transaction entity
-│   │   │   ├── merchant.go            # Merchant entity
 │   │   │   └── provider.go            # Payment provider entity
 │   │   ├── repository/
 │   │   │   ├── payment_repository.go  # Payment repository interface
-│   │   │   ├── transaction_repository.go
-│   │   │   └── merchant_repository.go
+│   │   │   ├── webhook_event_repository.go
 │   │   └── service/
 │   │       └── payment_service.go     # Payment service interface
 │   ├── usecase/
