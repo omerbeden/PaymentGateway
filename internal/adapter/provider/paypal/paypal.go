@@ -2,9 +2,11 @@ package paypal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/omerbeden/paymentgateway/internal/adapter/provider"
 	"github.com/omerbeden/paymentgateway/internal/domain/entity"
@@ -26,38 +28,6 @@ func NewProvider(cfg config.Paypal) *Provider {
 	return &Provider{
 		httpClient: &http.Client{},
 		cfg:        cfg,
-	}
-}
-
-type PaypalRequest struct {
-	intent         string
-	purchase_units []struct {
-		amount struct {
-			currency_code string
-			value         string
-		}
-	}
-}
-type PayPalResponse struct {
-	id             string
-	intent         string
-	status         string
-	purchase_units []struct {
-		reference_id string
-		amount       struct {
-			currency_code string
-			value         string
-		}
-		payee struct {
-			email_address string
-			merchant_id   string
-		}
-	}
-	create_time string
-	links       []struct {
-		href   string
-		rel    string
-		method string
 	}
 }
 
@@ -125,8 +95,40 @@ func (p *Provider) VerifyWebhook(payload []byte, signature string) error {
 }
 
 func (p *Provider) ParseWebhook(payload []byte) (*provider.WebhookEvent, error) {
-	// Implement webhook parsing logic here
-	return &provider.WebhookEvent{}, nil
+
+	var webhookData PaypalWebhookEvent
+	if err := json.Unmarshal(payload, &webhookData); err != nil {
+		return nil, fmt.Errorf("failed to parse paypal webhook %w", err)
+	}
+
+	createTime, err := time.Parse(time.RFC3339, webhookData.create_time)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse paypal webhook createtime %w", err)
+	}
+
+	total, err := strconv.ParseFloat(webhookData.resource.amount.total, 64)
+
+	event := &provider.WebhookEvent{
+		ProviderID:        "paypal",
+		EventType:         webhookData.event_type,
+		Amount:            total,
+		Currency:          webhookData.resource.amount.currency,
+		CreateTime:        createTime,
+		RawPayload:        string(payload),
+		ProviderPaymentID: webhookData.resource.id,
+	}
+
+	switch webhookData.event_type {
+	case "CHECKOUT.ORDER.APPROVED":
+		event.Status = entity.PaymentStatusProcessing
+	case "CHECKOUT.ORDER.COMPLETED":
+		event.Status = entity.PaymentStatusSucceeded
+	case "CHECKOUT.PAYMENT-APPROVAL.REVERSED":
+		event.Status = entity.PaymentStatusFailed
+	}
+
+	return event, nil
+
 }
 
 type accessTokenResponse struct {
@@ -161,4 +163,70 @@ func (p *Provider) getAccessToken(ctx context.Context) (string, error) {
 	}
 
 	return response.AccessToken, nil
+}
+
+type PaypalRequest struct {
+	intent         string
+	purchase_units []struct {
+		amount struct {
+			currency_code string
+			value         string
+		}
+	}
+}
+type PayPalResponse struct {
+	id             string
+	intent         string
+	status         string
+	purchase_units []struct {
+		reference_id string
+		amount       struct {
+			currency_code string
+			value         string
+		}
+		payee struct {
+			email_address string
+			merchant_id   string
+		}
+	}
+	create_time string
+	links       []struct {
+		href   string
+		rel    string
+		method string
+	}
+}
+
+type PaypalWebhookEvent struct {
+	id            string
+	create_time   string
+	resource_type string
+	event_version string
+	event_type    string
+	summary       string
+	resource      struct {
+		id          string
+		create_time string
+		update_time string
+		state       string
+		amount      struct {
+			total    string
+			currency string
+			details  struct {
+				subtotal string
+			}
+		}
+		parent_payment string
+		valid_until    string
+		links          []struct {
+			href   string
+			rel    string
+			method string
+		}
+	}
+	links []struct {
+		href   string
+		rel    string
+		method string
+	}
 }

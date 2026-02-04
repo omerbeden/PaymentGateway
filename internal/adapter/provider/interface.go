@@ -27,11 +27,11 @@ type CreatePaymentResult struct {
 
 type WebhookEvent struct {
 	ProviderID        string
-	EventType         string // "payment.succeeded", "payment.failed", "refund.succeeded"
+	EventType         string
 	ProviderPaymentID string
 	Status            entity.PaymentStatus
-	Amount            int64
+	Amount            float64
 	Currency          string
-	Timestamp         time.Time
+	CreateTime        time.Time
 	RawPayload        string
 }
