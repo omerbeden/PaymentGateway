@@ -1,0 +1,193 @@
+openapi: 3.0.3
+info:
+  title: PaymentGateway API
+  description: |
+    PaymentGateway API provides endpoints for health checks, creating payments and processing provider webhooks (e.g., PayPal).
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+tags:
+  - name: Health
+    description: Health and readiness checks
+  - name: Payments
+    description: Payment creation and management
+  - name: Webhooks
+    description: External provider webhook endpoints
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Liveness probe
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness probe (checks DB and Redis)
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+        '503':
+          description: Service not ready (dependency failure)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/payments/payments:
+    post:
+      tags:
+        - Payments
+      summary: Create a new payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      responses:
+        '201':
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePaymentResponse'
+        '400':
+          description: Bad request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/webhooks/paypal:
+    post:
+      tags:
+        - Webhooks
+      summary: Handle PayPal webhook
+      description: |
+        Receives raw webhook payloads from PayPal. The endpoint expects the PayPal signature header `PAYPAL-TRANSMISSION-SIG`.
+      parameters:
+        - in: header
+          name: PAYPAL-TRANSMISSION-SIG
+          schema:
+            type: string
+          description: PayPal transmission signature used to verify the webhook
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Raw webhook payload (JSON recommended)
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+            description: Raw binary payloads
+      responses:
+        '200':
+          description: Webhook processed (success or error; this handler returns 200 even on certain errors)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/WebhookSuccessResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+    ReadyResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ready
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "database unavailable"
+    CreatePaymentRequest:
+      type: object
+      required:
+        - amount
+        - currency
+        - provider_id
+      properties:
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+          example: 12.5
+        currency:
+          type: string
+          description: Currency code
+          enum: [USD, EUR, TRY, GBP]
+          example: USD
+        provider_id:
+          type: string
+          description: The payment provider to use (e.g., "paypal")
+          example: paypal
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional key/value metadata
+          example: {"order_id": "42"}
+    CreatePaymentResponse:
+      type: object
+      properties:
+        payment_id:
+          type: string
+          example: "pay_1234567890"
+        status:
+          type: string
+          description: Payment status
+          enum: [pending, processing, succeeded, failed, cancelled, refunded, partial_refund]
+          example: pending
+        amount:
+          type: number
+          format: double
+          example: 12.5
+        currency:
+          type: string
+          example: USD
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-02-04T15:04:05Z"
+    WebhookSuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
