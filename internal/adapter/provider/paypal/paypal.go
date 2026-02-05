@@ -23,6 +23,7 @@ const (
 	pathCreatePayment        = "/v2/checkout/orders"
 	pathAuthz                = "/v1/oauth2/token"
 	pathVerifyEventSignature = "/v1/notifications/verify-webhook-signature"
+	pathCaptureOrder         = "/v2/checkout/orders/:%s/capture"
 )
 
 func NewProvider(cfg config.Paypal) *Provider {
@@ -88,6 +89,27 @@ func (p *Provider) CreatePayment(ctx context.Context, payment *entity.Payment) (
 	}, nil
 }
 
+func (p *Provider) Capture(ctx context.Context, id string) error {
+
+	var paypalResponse paypalCaptureResponse
+
+	header := http.Header{}
+	header.Set("Content-Type", "application/json")
+
+	err := httpclient.MakeRequest(httpclient.RequestParam[any]{
+		Client: p.httpClient,
+		Header: &header,
+		Method: http.MethodPost,
+		URL:    p.cfg.BaseURL + fmt.Sprintf(pathCaptureOrder, id),
+		Ctx:    ctx,
+	}, &paypalResponse)
+
+	if paypalResponse.status == "COMPLETED" {
+		return nil
+	}
+
+	return fmt.Errorf("error while capturing payment %w", err)
+}
 func (p *Provider) VerifyWebhook(ctx context.Context, webhookCtx *provider.WebhookContext) error {
 
 	webhookID := p.cfg.WebhookID
@@ -158,7 +180,7 @@ func (p *Provider) ParseWebhook(payload []byte) (*provider.WebhookEvent, error) 
 
 	switch webhookData.event_type {
 	case "CHECKOUT.ORDER.APPROVED":
-		event.Status = entity.PaymentStatusProcessing
+		event.Status = entity.PaymentStatusPending
 	case "CHECKOUT.ORDER.COMPLETED":
 		event.Status = entity.PaymentStatusSucceeded
 	case "CHECKOUT.PAYMENT-APPROVAL.REVERSED":
@@ -232,6 +254,46 @@ type PayPalResponse struct {
 		href   string
 		rel    string
 		method string
+	}
+}
+
+type paypalCaptureResponse struct {
+	id             string
+	status         string
+	purchase_units []struct {
+		reference_id string
+		payments     struct {
+			captures []struct {
+				id     string
+				status string
+				amount struct {
+					currency_code string
+					value         string
+				}
+				final_capture               bool
+				seller_receivable_breakdown struct {
+					gross_amount struct {
+						currency_code string
+						value         string
+					}
+					paypal_fee struct {
+						currency_code string
+						value         string
+					}
+					net_amount struct {
+						currency_code string
+						value         string
+					}
+				}
+				links []struct {
+					href   string
+					rel    string
+					method string
+				}
+				create_time string
+				update_time string
+			}
+		}
 	}
 }
 

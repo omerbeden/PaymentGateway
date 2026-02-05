@@ -10,6 +10,7 @@ import (
 
 type PaymentProvider interface {
 	CreatePayment(ctx context.Context, payment *entity.Payment) (*CreatePaymentResult, error)
+	Capture(ctx context.Context, id string) error
 	VerifyWebhook(ctx context.Context, webhookCtx *WebhookContext) error
 	ParseWebhook(payload []byte) (*WebhookEvent, error)
 }
@@ -19,7 +20,7 @@ type CreatePaymentResult struct {
 	Status            entity.PaymentStatus
 	Amount            float64
 	Currency          string
-	ProviderFee       int64
+	ProviderFee       float64
 	PaymentURL        string
 	Metadata          map[string]string
 	ErrorCode         string
@@ -41,4 +42,10 @@ type WebhookEvent struct {
 	Currency          string
 	CreateTime        time.Time
 	RawPayload        string
+}
+
+type CaptureResult struct {
+	ProviderPaymentID string
+	Status            entity.PaymentStatus
+	ProviderFee       float64
 }

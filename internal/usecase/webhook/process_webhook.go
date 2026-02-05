@@ -57,6 +57,14 @@ func (uc *ProcessWebHookUseCase) Execute(ctx context.Context, input ProcessWebHo
 		ReceivedAt:        time.Now(),
 	})
 
+	//Ready to Capture
+	if webhookEvent.Status == entity.PaymentStatusPending {
+		err := providerAdapter.Capture(ctx, webhookEvent.ProviderPaymentID)
+		if err != nil {
+			return err
+		}
+	}
+
 	payment, err := uc.paymentRepo.GetByProviderPaymentID(ctx, webhookEvent.ProviderPaymentID, input.ProviderId)
 	if err != nil {
 		return err
