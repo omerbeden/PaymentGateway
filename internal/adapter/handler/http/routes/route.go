@@ -49,6 +49,8 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engin
 	paymentHandler := handler.NewPaymentHandler(createPaymentUC)
 	webhookHandler := handler.NewWebhookHandler(webhookUC)
 
+	idempotancyMW := middleware.NewIdempotancyMiddleware(redis)
+
 	r.GET("/health", healthHandler.Health)
 	r.GET("/ready", healthHandler.Ready)
 
@@ -56,7 +58,7 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engin
 	{
 		payments := v1.Group("/payments")
 		{
-			payments.POST("/payments", paymentHandler.CreatePayment)
+			payments.POST("/payments", idempotancyMW.Check(), paymentHandler.CreatePayment)
 		}
 
 		webhooks := v1.Group("/webhooks")
