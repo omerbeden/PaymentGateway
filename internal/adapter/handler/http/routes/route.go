@@ -2,13 +2,16 @@ package routes
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	handler "github.com/omerbeden/paymentgateway/internal/adapter/handler/http"
+	"github.com/omerbeden/paymentgateway/internal/adapter/handler/http/middleware"
 	"github.com/omerbeden/paymentgateway/internal/adapter/provider"
 	"github.com/omerbeden/paymentgateway/internal/adapter/provider/paypal"
 	"github.com/omerbeden/paymentgateway/internal/adapter/repository/postgres"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/config"
+	"github.com/omerbeden/paymentgateway/internal/infrastructure/logger"
 	"github.com/omerbeden/paymentgateway/internal/usecase/payment"
 	"github.com/omerbeden/paymentgateway/internal/usecase/webhook"
 	"github.com/redis/go-redis/v9"
@@ -16,6 +19,18 @@ import (
 
 func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engine {
 	r := gin.New()
+	var log logger.Logger
+
+	if cfg.Environment == "development" {
+		log = logger.NewDevelopment()
+	} else {
+		log = logger.New(cfg.LogLevel)
+	}
+
+	r.Use(middleware.RequestID())
+	r.Use(middleware.Logger(log))
+	r.Use(gin.Recovery())
+	r.Use(middleware.Timeout(30 * time.Second))
 
 	paymentRepository := postgres.NewPaymentRepository(db)
 
