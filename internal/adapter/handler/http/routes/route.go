@@ -4,7 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/gin-gonic/gin"
-	"github.com/omerbeden/paymentgateway/internal/adapter/handler/http/handler"
+	handler "github.com/omerbeden/paymentgateway/internal/adapter/handler/http"
 	"github.com/omerbeden/paymentgateway/internal/adapter/provider"
 	"github.com/omerbeden/paymentgateway/internal/adapter/provider/paypal"
 	"github.com/omerbeden/paymentgateway/internal/adapter/repository/postgres"
