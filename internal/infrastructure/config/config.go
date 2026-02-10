@@ -10,6 +10,7 @@ type Config struct {
 	RedisAddr   string
 	ServerPort  string
 	Paypal      *Paypal
+	LogLevel    string
 }
 
 type Paypal struct {
@@ -27,6 +28,7 @@ func Load() *Config {
 		DatabaseDSN: getEnv("DATABASE_DSN", "postgresql://postgres:postgres@localhost:5432/payment_gateway?sslmode=disable"),
 		RedisAddr:   getEnv("REDIS_ADDR", "localhost:6379"),
 		ServerPort:  getEnv("SERVER_PORT", "8080"),
+		LogLevel:    getEnv("LOG_LEVEL", "development"),
 		Paypal: &Paypal{
 			Enabled:      getEnv("PAYPAL_ENABLED", "true") == "true",
 			BaseURL:      getEnv("PAYPAL_BASE_URL", "base_url"),
