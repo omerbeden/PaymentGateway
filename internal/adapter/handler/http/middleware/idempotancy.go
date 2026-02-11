@@ -46,8 +46,7 @@ func (im *IdempotencyMiddleware) Check() gin.HandlerFunc {
 		key := fmt.Sprintf("idempotency:%s", idempotencyKey)
 
 		cachedResponse, err := im.redis.Get(ctx, key).Result()
-
-		if err != nil {
+		if err == nil {
 			var response map[string]interface{}
 			if err := json.Unmarshal([]byte(cachedResponse), &response); err == nil {
 				c.JSON(http.StatusOK, response)
@@ -57,6 +56,7 @@ func (im *IdempotencyMiddleware) Check() gin.HandlerFunc {
 		}
 
 		c.Set("idempotency_key", idempotencyKey)
+		fmt.Printf("generated key SET: %s\n", idempotencyKey)
 
 		blw := &bodyLogWriter{body: []byte{}, ResponseWriter: c.Writer}
 		c.Writer = blw

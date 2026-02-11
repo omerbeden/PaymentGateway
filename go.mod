@@ -10,9 +10,13 @@ require (
 	github.com/stretchr/testify v1.11.1
 )
 
-require go.uber.org/multierr v1.10.0 // indirect
+require (
+	github.com/yuin/gopher-lua v1.1.1 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
+)
 
 require (
+	github.com/alicebob/miniredis/v2 v2.36.1
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
