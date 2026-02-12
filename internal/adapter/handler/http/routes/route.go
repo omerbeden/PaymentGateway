@@ -42,7 +42,7 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engin
 		providerFactory.RegisterProvider("paypal", paypal.NewProvider(*cfg.Paypal))
 	}
 
-	createPaymentUC := payment.NewCreatePaymentUseCase(paymentRepository, providerFactory)
+	createPaymentUC := payment.NewCreatePaymentUseCase(paymentRepository, providerFactory, log)
 	webhookUC := webhook.NewProcessWebHookUseCase(paymentRepository, providerFactory)
 
 	healthHandler := handler.NewHealthHandler(db, redis)
