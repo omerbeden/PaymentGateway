@@ -12,8 +12,10 @@ import (
 	"github.com/omerbeden/paymentgateway/internal/adapter/repository/postgres"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/config"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/logger"
+	"github.com/omerbeden/paymentgateway/internal/infrastructure/metrics"
 	"github.com/omerbeden/paymentgateway/internal/usecase/payment"
 	"github.com/omerbeden/paymentgateway/internal/usecase/webhook"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -27,7 +29,10 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engin
 		log = logger.New(cfg.LogLevel)
 	}
 
+	m := metrics.New()
+
 	r.Use(middleware.RequestID())
+	r.Use(middleware.Metrics(m))
 	r.Use(middleware.Logger(log))
 	r.Use(gin.Recovery())
 	r.Use(middleware.Timeout(30 * time.Second))
@@ -53,6 +58,7 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engin
 
 	r.GET("/health", healthHandler.Health)
 	r.GET("/ready", healthHandler.Ready)
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	v1 := r.Group("/api/v1")
 	{
