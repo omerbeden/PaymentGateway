@@ -18,7 +18,7 @@ func TestCreatePayment_Success(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -66,7 +66,7 @@ func TestCreatePayment_DuplicateIdempotencyKey(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -110,7 +110,7 @@ func TestCreatePayment_InvalidMetadata(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -158,7 +158,7 @@ func TestCreatePayment_DatabaseError(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -204,7 +204,7 @@ func TestCreatePayment_ContextCancellation(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -250,7 +250,7 @@ func TestCreatePayment_WithNilMetadata(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -295,7 +295,7 @@ func TestUpdatePayment_Success(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -341,7 +341,7 @@ func TestUpdatePayment_StatusChangeToFailed(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -386,7 +386,7 @@ func TestUpdatePayment_WithEmptyMetadata(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -429,7 +429,7 @@ func TestUpdatePayment_WithNilMetadata(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -472,7 +472,7 @@ func TestUpdatePayment_DatabaseError(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -516,7 +516,7 @@ func TestUpdatePayment_ContextCancellation(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -560,7 +560,7 @@ func TestUpdatePayment_StatusChangeToRefunded(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -606,7 +606,7 @@ func TestUpdatePayment_MultipleMetadataFields(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -655,7 +655,7 @@ func TestUpdatePayment_LargeAmount(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	payment := &entity.Payment{
@@ -700,7 +700,7 @@ func TestGetByProviderPaymentID_Success(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	now := time.Now()
@@ -747,7 +747,7 @@ func TestGetByProviderPaymentID_NotFound(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	mock.ExpectQuery(`SELECT \* FROM payments WHERE provider_payment_id=\$1 AND provider_id=\$2`).
@@ -769,7 +769,7 @@ func TestGetByProviderPaymentID_WrongProvider(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	mock.ExpectQuery(`SELECT \* FROM payments WHERE provider_payment_id=\$1 AND provider_id=\$2`).
@@ -791,7 +791,7 @@ func TestGetByProviderPaymentID_WithoutMetadata(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	now := time.Now()
@@ -823,7 +823,7 @@ func TestGetByProviderPaymentID_DatabaseError(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	mock.ExpectQuery(`SELECT \* FROM payments WHERE provider_payment_id=\$1 AND provider_id=\$2`).
@@ -846,7 +846,7 @@ func TestGetByProviderPaymentID_WithComplexMetadata(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	now := time.Now()
@@ -880,7 +880,7 @@ func TestGetByProviderPaymentID_FailedPaymentStatus(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := NewPaymentRepository(db)
+	repo := NewPaymentRepository(db, nil)
 	ctx := context.Background()
 
 	now := time.Now()

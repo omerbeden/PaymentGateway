@@ -11,12 +11,14 @@ import (
 	"github.com/omerbeden/paymentgateway/internal/adapter/provider"
 	"github.com/omerbeden/paymentgateway/internal/domain/entity"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/config"
+	"github.com/omerbeden/paymentgateway/internal/infrastructure/metrics"
 	"github.com/omerbeden/paymentgateway/internal/pkg/httpclient"
 )
 
 type Provider struct {
 	httpClient *http.Client
 	cfg        config.Paypal
+	metrics    *metrics.Metrics
 }
 
 const (
@@ -24,16 +26,20 @@ const (
 	pathAuthz                = "/v1/oauth2/token"
 	pathVerifyEventSignature = "/v1/notifications/verify-webhook-signature"
 	pathCaptureOrder         = "/v2/checkout/orders/:%s/capture"
+	providerID               = "paypal"
 )
 
-func NewProvider(cfg config.Paypal) *Provider {
+func NewProvider(cfg config.Paypal, metrics *metrics.Metrics) *Provider {
 	return &Provider{
 		httpClient: &http.Client{},
 		cfg:        cfg,
+		metrics:    metrics,
 	}
 }
 
 func (p *Provider) CreatePayment(ctx context.Context, payment *entity.Payment) (*provider.CreatePaymentResult, error) {
+	start := time.Now()
+	operation := "create_payment"
 
 	body := PaypalRequest{
 		intent: "CAPTURE",
@@ -58,6 +64,10 @@ func (p *Provider) CreatePayment(ctx context.Context, payment *entity.Payment) (
 	// Fetch access token and set Authorization header
 	token, err := p.getAccessToken(ctx)
 	if err != nil {
+		p.metrics.ProviderErrors.WithLabelValues(
+			payment.ProviderID,
+			"api_auth_error",
+		).Inc()
 		return nil, err
 	}
 
@@ -75,8 +85,29 @@ func (p *Provider) CreatePayment(ctx context.Context, payment *entity.Payment) (
 		URL:    p.cfg.BaseURL + pathCreatePayment,
 		Body:   body,
 	}, &response); err != nil {
+		p.metrics.ProviderErrors.WithLabelValues(
+			payment.ProviderID,
+			"api_error",
+		).Inc()
+		p.metrics.ProviderRequestsTotal.WithLabelValues(
+			payment.ProviderID,
+			operation,
+			"error",
+		).Inc()
 		return nil, err
 	}
+
+	duration := time.Since(start).Seconds()
+	p.metrics.ProviderRequestsTotal.WithLabelValues(
+		payment.ProviderID,
+		operation,
+		"success",
+	).Inc()
+
+	p.metrics.ProviderRequestDuration.WithLabelValues(
+		payment.ProviderID,
+		operation,
+	).Observe(duration)
 
 	amount, _ := strconv.ParseFloat(response.purchase_units[0].amount.value, 64)
 	return &provider.CreatePaymentResult{
@@ -90,6 +121,8 @@ func (p *Provider) CreatePayment(ctx context.Context, payment *entity.Payment) (
 }
 
 func (p *Provider) Capture(ctx context.Context, id string) error {
+	start := time.Now()
+	operation := "capture_payment"
 
 	var paypalResponse paypalCaptureResponse
 
@@ -104,15 +137,38 @@ func (p *Provider) Capture(ctx context.Context, id string) error {
 		Ctx:    ctx,
 	}, &paypalResponse)
 
+	duration := time.Since(start).Seconds()
+	p.metrics.ProviderRequestDuration.WithLabelValues(
+		providerID,
+		operation,
+	).Observe(duration)
+
 	if paypalResponse.status == "COMPLETED" {
+		p.metrics.ProviderRequestsTotal.WithLabelValues(
+			providerID,
+			operation,
+			"success",
+		).Inc()
 		return nil
 	}
+
+	p.metrics.ProviderRequestsTotal.WithLabelValues(
+		providerID,
+		operation,
+		"error",
+	).Inc()
+
+	p.metrics.ProviderErrors.WithLabelValues(
+		providerID,
+		"api_error",
+	).Inc()
 
 	return fmt.Errorf("error while capturing payment %w", err)
 }
 func (p *Provider) VerifyWebhook(ctx context.Context, webhookCtx *provider.WebhookContext) error {
-
+	operation := "verify_webhook"
 	webhookID := p.cfg.WebhookID
+	start := time.Now()
 
 	body := PaypalVerifySignatureRequest{
 		webhook_id:        webhookID,
@@ -130,6 +186,10 @@ func (p *Provider) VerifyWebhook(ctx context.Context, webhookCtx *provider.Webho
 
 	token, err := p.getAccessToken(context.Background())
 	if err != nil {
+		p.metrics.ProviderErrors.WithLabelValues(
+			providerID,
+			"api_auth_error",
+		).Inc()
 		return err
 	}
 
@@ -143,13 +203,32 @@ func (p *Provider) VerifyWebhook(ctx context.Context, webhookCtx *provider.Webho
 		URL:    p.cfg.BaseURL + pathVerifyEventSignature,
 		Body:   body,
 	}, &response); err != nil {
+		p.metrics.ProviderErrors.WithLabelValues(
+			providerID,
+			"api_error",
+		).Inc()
 		return err
 	}
+	duration := time.Since(start).Seconds()
+	p.metrics.ProviderRequestDuration.WithLabelValues(
+		providerID,
+		operation,
+	).Observe(duration)
 
 	if response.verification_status == "SUCCESS" {
+		p.metrics.ProviderRequestsTotal.WithLabelValues(
+			providerID,
+			operation,
+			"success",
+		).Inc()
 		return nil
 	}
 
+	p.metrics.ProviderRequestsTotal.WithLabelValues(
+		providerID,
+		operation,
+		"error",
+	).Inc()
 	return fmt.Errorf("paypal webhook event verification failed")
 
 }

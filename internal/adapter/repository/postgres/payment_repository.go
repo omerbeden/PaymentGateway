@@ -6,20 +6,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/omerbeden/paymentgateway/internal/domain/entity"
+	"github.com/omerbeden/paymentgateway/internal/infrastructure/metrics"
 )
 
 type PaymentRepository struct {
-	db *sql.DB
+	db      *sql.DB
+	metrics *metrics.Metrics
 }
 
-func NewPaymentRepository(db *sql.DB) *PaymentRepository {
-	return &PaymentRepository{db: db}
+func NewPaymentRepository(db *sql.DB, metrics *metrics.Metrics) *PaymentRepository {
+	return &PaymentRepository{db: db, metrics: metrics}
 }
 
 func (r *PaymentRepository) CreatePayment(ctx context.Context, payment *entity.Payment) error {
+	start := time.Now()
 	query := `INSERT INTO payments (id, amount, currency, idempotency_key, provider_id, status, created_at, updated_at, expires_at,metadata)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
@@ -50,12 +54,15 @@ func (r *PaymentRepository) CreatePayment(ctx context.Context, payment *entity.P
 		return fmt.Errorf("failed to create payment: %w", err)
 	}
 
+	duration := time.Since(start).Seconds()
+	r.metrics.DBQueryDuration.WithLabelValues("create_payment").Observe(duration)
+
 	return nil
 
 }
 
 func (r *PaymentRepository) GetByProviderPaymentID(ctx context.Context, providerPaymentID, providerID string) (*entity.Payment, error) {
-
+	start := time.Now()
 	query := `SELECT * FROM payments WHERE provider_payment_id=$1 AND provider_id=$2`
 	row := r.db.QueryRowContext(ctx, query, providerPaymentID, providerID)
 
@@ -82,6 +89,9 @@ func (r *PaymentRepository) GetByProviderPaymentID(ctx context.Context, provider
 		return nil, fmt.Errorf("failed to get payment: %w", err)
 	}
 
+	duration := time.Since(start).Seconds()
+	r.metrics.DBQueryDuration.WithLabelValues("create_payment").Observe(duration)
+
 	if len(metadataBytes) > 0 {
 		var metadata map[string]string
 		if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
@@ -94,6 +104,7 @@ func (r *PaymentRepository) GetByProviderPaymentID(ctx context.Context, provider
 }
 
 func (r *PaymentRepository) UpdatePayment(ctx context.Context, payment *entity.Payment) error {
+	start := time.Now()
 	query := `UPDATE payments SET 
 	amount=$1,
 	currency=$2, 
@@ -124,6 +135,8 @@ func (r *PaymentRepository) UpdatePayment(ctx context.Context, payment *entity.P
 		return fmt.Errorf("failed to update payment: %w", err)
 	}
 
+	duration := time.Since(start).Seconds()
+	r.metrics.DBQueryDuration.WithLabelValues("create_payment").Observe(duration)
 	return nil
 
 }

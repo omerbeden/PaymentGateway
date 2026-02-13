@@ -15,7 +15,6 @@ type Metrics struct {
 	ProviderRequestDuration   *prometheus.HistogramVec
 	ProviderErrors            *prometheus.CounterVec
 	DBQueryDuration           *prometheus.HistogramVec
-	DBConnectionsActive       prometheus.Gauge
 	WebhooksReceived          *prometheus.CounterVec
 	WebhookProcessingDuration *prometheus.HistogramVec
 }
@@ -41,7 +40,7 @@ func New() *Metrics {
 				Name: "payments_total",
 				Help: "Total number of payments processed",
 			},
-			[]string{"status", "currency", "provider", "payment_method"},
+			[]string{"status", "currency", "provider"},
 		),
 		PaymentAmount: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -89,13 +88,6 @@ func New() *Metrics {
 				Buckets: []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1},
 			},
 			[]string{"operation"},
-		),
-
-		DBConnectionsActive: promauto.NewGauge(
-			prometheus.GaugeOpts{
-				Name: "db_connections_active",
-				Help: "Number of active database connections",
-			},
 		),
 		WebhooksReceived: promauto.NewCounterVec(
 			prometheus.CounterOpts{

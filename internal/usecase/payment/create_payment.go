@@ -3,28 +3,33 @@ package payment
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/omerbeden/paymentgateway/internal/adapter/provider"
 	"github.com/omerbeden/paymentgateway/internal/domain/entity"
 	"github.com/omerbeden/paymentgateway/internal/domain/repository"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/logger"
+	"github.com/omerbeden/paymentgateway/internal/infrastructure/metrics"
 )
 
 type CreatePaymentUseCase struct {
 	paymentRepo     repository.PaymentRepository
 	providerFactory *provider.Factory
 	log             logger.Logger
+	metrics         *metrics.Metrics
 }
 
 func NewCreatePaymentUseCase(
 	paymentRepo repository.PaymentRepository,
 	providerFactory *provider.Factory,
 	log logger.Logger,
+	metrics *metrics.Metrics,
 ) *CreatePaymentUseCase {
 	return &CreatePaymentUseCase{
 		paymentRepo:     paymentRepo,
 		providerFactory: providerFactory,
 		log:             log,
+		metrics:         metrics,
 	}
 }
 
@@ -37,6 +42,7 @@ type CreatePaymentInput struct {
 }
 
 func (uc *CreatePaymentUseCase) Execute(ctx context.Context, input CreatePaymentInput) (*entity.Payment, error) {
+	start := time.Now()
 	provider, err := uc.providerFactory.GetProvider(input.ProviderID)
 	if provider == nil {
 		return nil, fmt.Errorf("invalid provider: %w", err)
@@ -75,6 +81,7 @@ func (uc *CreatePaymentUseCase) Execute(ctx context.Context, input CreatePayment
 				"payment_id", payment.ID,
 				"provider", input.ProviderID,
 			)
+			uc.recordPaymentMetrics(payment, time.Since(start))
 			return nil, fmt.Errorf("failed to update payment after provider failure: %w", err)
 		}
 		log.Error("Failed to create payment , provider error",
@@ -82,6 +89,7 @@ func (uc *CreatePaymentUseCase) Execute(ctx context.Context, input CreatePayment
 			"payment_id", payment.ID,
 			"provider", input.ProviderID,
 		)
+		uc.recordPaymentMetrics(payment, time.Since(start))
 		return nil, fmt.Errorf("provider failed to create payment: %w", err)
 	}
 
@@ -94,6 +102,7 @@ func (uc *CreatePaymentUseCase) Execute(ctx context.Context, input CreatePayment
 			"payment_id", payment.ID,
 			"provider", input.ProviderID,
 		)
+		uc.recordPaymentMetrics(payment, time.Since(start))
 		return nil, fmt.Errorf("failed to update payment: %w", err)
 	}
 
@@ -103,6 +112,8 @@ func (uc *CreatePaymentUseCase) Execute(ctx context.Context, input CreatePayment
 		"provider", input.ProviderID,
 	)
 
+	uc.recordPaymentMetrics(payment, time.Since(start))
+
 	return payment, nil
 }
 
@@ -111,4 +122,22 @@ func getRequestID(ctx context.Context) string {
 		return requestID
 	}
 	return "unknown"
+}
+
+func (uc *CreatePaymentUseCase) recordPaymentMetrics(payment *entity.Payment, duration time.Duration) {
+	uc.metrics.PaymentsTotal.WithLabelValues(
+		string(payment.Status),
+		payment.Currency,
+		payment.ProviderID,
+	).Inc()
+
+	uc.metrics.PaymentAmount.WithLabelValues(
+		payment.Currency,
+		payment.ProviderID,
+	).Observe(payment.Amount)
+
+	uc.metrics.PaymentDuration.WithLabelValues(
+		payment.ProviderID,
+		string(payment.Status),
+	).Observe(duration.Seconds())
 }

@@ -37,17 +37,17 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engin
 	r.Use(gin.Recovery())
 	r.Use(middleware.Timeout(30 * time.Second))
 
-	paymentRepository := postgres.NewPaymentRepository(db)
+	paymentRepository := postgres.NewPaymentRepository(db, m)
 
 	providerFactory := provider.NewProviderFactory()
 	if cfg.Paypal.Enabled {
 		if cfg.Environment == "developmet" {
 			cfg.Paypal.BaseURL = cfg.Paypal.SandBoxURL
 		}
-		providerFactory.RegisterProvider("paypal", paypal.NewProvider(*cfg.Paypal))
+		providerFactory.RegisterProvider("paypal", paypal.NewProvider(*cfg.Paypal, m))
 	}
 
-	createPaymentUC := payment.NewCreatePaymentUseCase(paymentRepository, providerFactory, log)
+	createPaymentUC := payment.NewCreatePaymentUseCase(paymentRepository, providerFactory, log, m)
 	webhookUC := webhook.NewProcessWebHookUseCase(paymentRepository, providerFactory)
 
 	healthHandler := handler.NewHealthHandler(db, redis)
