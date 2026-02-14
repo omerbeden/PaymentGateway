@@ -1,0 +1,29 @@
+groups:
+  - name: container_alerts
+    interval: 30s
+    rules:      
+      - alert: HighContainerCPU
+        expr: rate(container_cpu_usage_seconds_total{name=~"payment-.*"}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage in {{ $labels.name }}"
+          description: "Container {{ $labels.name }} CPU usage is {{ $value }}%"
+      
+      - alert: HighContainerMemory
+        expr: (container_memory_usage_bytes{name=~"payment-.*"} / container_spec_memory_limit_bytes{name=~"payment-.*"}) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage in {{ $labels.name }}"
+          description: "Container {{ $labels.name }} memory usage is {{ $value }}%"
+      
+      - alert: ContainerDown
+        expr: up{job="payment-gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Payment gateway container is down"
