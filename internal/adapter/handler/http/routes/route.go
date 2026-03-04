@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	handler "github.com/omerbeden/paymentgateway/internal/adapter/handler/http"
 	"github.com/omerbeden/paymentgateway/internal/adapter/handler/http/middleware"
+	"github.com/omerbeden/paymentgateway/internal/adapter/handler/messaging"
 	"github.com/omerbeden/paymentgateway/internal/adapter/provider"
 	"github.com/omerbeden/paymentgateway/internal/adapter/provider/paypal"
 	"github.com/omerbeden/paymentgateway/internal/adapter/repository/postgres"
@@ -19,7 +20,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engine {
+func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config, publisher *messaging.KafkaPublisher) *gin.Engine {
 	r := gin.New()
 	var log logger.Logger
 
@@ -48,7 +49,7 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config) *gin.Engin
 	}
 
 	createPaymentUC := payment.NewCreatePaymentUseCase(paymentRepository, providerFactory, log, m)
-	webhookUC := webhook.NewProcessWebHookUseCase(paymentRepository, providerFactory)
+	webhookUC := webhook.NewProcessWebHookUseCase(paymentRepository, providerFactory, publisher)
 
 	healthHandler := handler.NewHealthHandler(db, redis)
 	paymentHandler := handler.NewPaymentHandler(createPaymentUC)

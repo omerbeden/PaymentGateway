@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/omerbeden/paymentgateway/internal/adapter/handler/http/routes"
+	"github.com/omerbeden/paymentgateway/internal/adapter/handler/messaging"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/cache"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/config"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/database"
+	infrakafka "github.com/omerbeden/paymentgateway/internal/infrastructure/queue/kafka"
 )
 
 func main() {
@@ -27,7 +29,24 @@ func main() {
 	redis := cache.NewRedis(appConfig.RedisAddr)
 	defer redis.Close()
 
-	router := routes.SetupRoutes(db, redis, appConfig)
+	admin, err := infrakafka.NewAdminClient(appConfig.Kafka.Brokers)
+	if err != nil {
+		log.Fatal("kafka admin: %v", err)
+	}
+
+	if err := admin.EnsureTopics(context.Background(), infrakafka.DefaultTopics()); err != nil {
+		log.Fatal("kafka admin: ensure topics: %v", err)
+	}
+
+	producer, err := infrakafka.NewKafkaProducer(*appConfig.Kafka)
+	if err != nil {
+		log.Fatal("kafka producer: %v", err)
+	}
+
+	defer producer.Close()
+	publisher := messaging.NewKafkaPublisher(producer)
+
+	router := routes.SetupRoutes(db, redis, appConfig, publisher)
 
 	srv := &http.Server{
 		Addr:    ":" + appConfig.ServerPort,

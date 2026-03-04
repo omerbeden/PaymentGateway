@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 )
 
 type Config struct {
@@ -11,6 +12,7 @@ type Config struct {
 	ServerPort  string
 	Paypal      *Paypal
 	LogLevel    string
+	Kafka       *Kafka
 }
 
 type Paypal struct {
@@ -20,6 +22,15 @@ type Paypal struct {
 	ClientID     string
 	ClientSecret string
 	WebhookID    string
+}
+
+type Kafka struct {
+	Brokers        string
+	FlushTimeoutMs int
+	SASLUsername   string
+	SASLPassword   string
+	SASLMechanism  string
+	TLSEnabled     bool
 }
 
 func Load() *Config {
@@ -36,6 +47,14 @@ func Load() *Config {
 			ClientID:     getEnv("PAYPAL_CLIENT_ID", "client_id"),
 			ClientSecret: getEnv("PAYPAL_CLIENT_SECRET", "client_secret"),
 		},
+		Kafka: &Kafka{
+			Brokers:        getEnv("KAFKA_BROKERS", "localhost:9092"),
+			FlushTimeoutMs: getEnvInt("KAFKA_FLUSH_TIMEOUT_MS", 5000),
+			SASLUsername:   getEnv("KAFKA_SASL_USERNAME", ""),
+			SASLPassword:   getEnv("KAFKA_SASL_PASSWORD", ""),
+			SASLMechanism:  getEnv("KAFKA_SASL_MECHANISM", "PLAIN"),
+			TLSEnabled:     getEnvBool("KAFKA_TLS_ENABLED", false),
+		},
 	}
 }
 
@@ -45,4 +64,22 @@ func getEnv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+func getEnvInt(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if i, err := strconv.Atoi(v); err == nil {
+			return i
+		}
+	}
+	return fallback
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	if v := os.Getenv(key); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			return b
+		}
+	}
+	return fallback
 }

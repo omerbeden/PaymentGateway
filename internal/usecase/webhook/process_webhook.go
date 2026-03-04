@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/omerbeden/paymentgateway/internal/adapter/provider"
 	"github.com/omerbeden/paymentgateway/internal/domain/entity"
+	"github.com/omerbeden/paymentgateway/internal/domain/event"
 	"github.com/omerbeden/paymentgateway/internal/domain/repository"
 )
 
@@ -14,12 +15,16 @@ type ProcessWebHookUseCase struct {
 	paymentRepo      repository.PaymentRepository
 	webhookEventRepo repository.WebhookEventRepository
 	providerFactory  *provider.Factory
+	publisher        event.Publisher
 }
 
-func NewProcessWebHookUseCase(paymentRepo repository.PaymentRepository, providerFactory *provider.Factory) *ProcessWebHookUseCase {
+func NewProcessWebHookUseCase(paymentRepo repository.PaymentRepository,
+	providerFactory *provider.Factory,
+	publisher event.Publisher) *ProcessWebHookUseCase {
 	return &ProcessWebHookUseCase{
 		paymentRepo:     paymentRepo,
 		providerFactory: providerFactory,
+		publisher:       publisher,
 	}
 }
 
@@ -63,6 +68,18 @@ func (uc *ProcessWebHookUseCase) Execute(ctx context.Context, input ProcessWebHo
 		if err != nil {
 			return err
 		}
+		notifyEvent := event.NewPaymentCompletedEvent(
+			webhookEvent.ProviderPaymentID,
+			webhookEvent.Currency,
+			input.ProviderId,
+			"",
+			webhookEvent.Amount,
+		)
+		//sohuld do async
+		if err := uc.publisher.Publish(ctx, event.TopicNotificationPaymentCompleted, notifyEvent); err != nil {
+			return err
+		}
+
 	}
 
 	payment, err := uc.paymentRepo.GetByProviderPaymentID(ctx, webhookEvent.ProviderPaymentID, input.ProviderId)
