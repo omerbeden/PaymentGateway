@@ -27,12 +27,13 @@ type Paypal struct {
 }
 
 type Kafka struct {
-	Brokers        string
-	FlushTimeoutMs int
-	SASLUsername   string
-	SASLPassword   string
-	SASLMechanism  string
-	TLSEnabled     bool
+	Brokers         string
+	FlushTimeoutMs  int
+	SASLUsername    string
+	SASLPassword    string
+	SASLMechanism   string
+	TLSEnabled      bool
+	AutoOffsetReset string
 }
 
 type Mongo struct {
