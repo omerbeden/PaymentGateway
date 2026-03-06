@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"time"
 )
 
 type Config struct {
@@ -13,6 +14,7 @@ type Config struct {
 	Paypal      *Paypal
 	LogLevel    string
 	Kafka       *Kafka
+	Mongo       *Mongo
 }
 
 type Paypal struct {
@@ -31,6 +33,12 @@ type Kafka struct {
 	SASLPassword   string
 	SASLMechanism  string
 	TLSEnabled     bool
+}
+
+type Mongo struct {
+	URI      string
+	Timeout  time.Duration
+	Database string
 }
 
 func Load() *Config {
@@ -54,6 +62,11 @@ func Load() *Config {
 			SASLPassword:   getEnv("KAFKA_SASL_PASSWORD", ""),
 			SASLMechanism:  getEnv("KAFKA_SASL_MECHANISM", "PLAIN"),
 			TLSEnabled:     getEnvBool("KAFKA_TLS_ENABLED", false),
+		},
+		Mongo: &Mongo{
+			URI:      getEnv("MONGO_URI", "mongodb://localhost:27017"),
+			Timeout:  getEnvDuration("MONGO_TIMEOUT", 10*time.Second),
+			Database: getEnv("MONGO_DATABASE", "payment_gateway"),
 		},
 	}
 }
@@ -79,6 +92,14 @@ func getEnvBool(key string, fallback bool) bool {
 	if v := os.Getenv(key); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			return b
+		}
+	}
+	return fallback
+}
+func getEnvDuration(key string, fallback time.Duration) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			return d
 		}
 	}
 	return fallback

@@ -1,10 +1,12 @@
 package routes
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/omerbeden/paymentgateway/internal/adapter/eventstore/mongodb"
 	handler "github.com/omerbeden/paymentgateway/internal/adapter/handler/http"
 	"github.com/omerbeden/paymentgateway/internal/adapter/handler/http/middleware"
 	"github.com/omerbeden/paymentgateway/internal/adapter/handler/messaging"
@@ -12,6 +14,7 @@ import (
 	"github.com/omerbeden/paymentgateway/internal/adapter/provider/paypal"
 	"github.com/omerbeden/paymentgateway/internal/adapter/repository/postgres"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/config"
+	"github.com/omerbeden/paymentgateway/internal/infrastructure/database"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/logger"
 	"github.com/omerbeden/paymentgateway/internal/infrastructure/metrics"
 	"github.com/omerbeden/paymentgateway/internal/usecase/payment"
@@ -39,6 +42,17 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config, publisher 
 	r.Use(middleware.Timeout(30 * time.Second))
 
 	paymentRepository := postgres.NewPaymentRepository(db, m)
+	mondodatabase, err := database.ConnectMongo(context.Background(), *cfg.Mongo)
+	if err != nil {
+		log.Fatal("Failed to connect to MongoDB: %v", err)
+	}
+	mongoStore := mongodb.NewMongoEventStore(mondodatabase)
+	changeStreamPublisher := mongodb.NewChangeStreamPublisher(mongoStore, publisher)
+	go func() {
+		if err := changeStreamPublisher.Start(context.Background()); err != nil {
+			log.Error("change stream publisher error: %v", err)
+		}
+	}()
 
 	providerFactory := provider.NewProviderFactory()
 	if cfg.Paypal.Enabled {
@@ -49,7 +63,7 @@ func SetupRoutes(db *sql.DB, redis *redis.Client, cfg *config.Config, publisher 
 	}
 
 	createPaymentUC := payment.NewCreatePaymentUseCase(paymentRepository, providerFactory, log, m)
-	webhookUC := webhook.NewProcessWebHookUseCase(paymentRepository, providerFactory, publisher)
+	webhookUC := webhook.NewProcessWebHookUseCase(paymentRepository, providerFactory, mongoStore)
 
 	healthHandler := handler.NewHealthHandler(db, redis)
 	paymentHandler := handler.NewPaymentHandler(createPaymentUC)

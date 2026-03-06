@@ -15,16 +15,16 @@ type ProcessWebHookUseCase struct {
 	paymentRepo      repository.PaymentRepository
 	webhookEventRepo repository.WebhookEventRepository
 	providerFactory  *provider.Factory
-	publisher        event.Publisher
+	eventStore       event.Store
 }
 
 func NewProcessWebHookUseCase(paymentRepo repository.PaymentRepository,
 	providerFactory *provider.Factory,
-	publisher event.Publisher) *ProcessWebHookUseCase {
+	eventStore event.Store) *ProcessWebHookUseCase {
 	return &ProcessWebHookUseCase{
 		paymentRepo:     paymentRepo,
 		providerFactory: providerFactory,
-		publisher:       publisher,
+		eventStore:      eventStore,
 	}
 }
 
@@ -75,8 +75,8 @@ func (uc *ProcessWebHookUseCase) Execute(ctx context.Context, input ProcessWebHo
 			"",
 			webhookEvent.Amount,
 		)
-		//sohuld do async
-		if err := uc.publisher.Publish(ctx, event.TopicNotificationPaymentCompleted, notifyEvent); err != nil {
+
+		if err := uc.eventStore.Append(ctx, notifyEvent); err != nil {
 			return err
 		}
 

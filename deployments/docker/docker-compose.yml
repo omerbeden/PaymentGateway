@@ -33,6 +33,49 @@ services:
       retries: 5
     networks:
       - payment-network
+  mongodb:
+    image: mongo:7.0
+    container_name: payment_gateway_mongodb
+    command: [ "--replSet", "rs0", "--bind_ip_all" ]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: payment_gateway
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - payment-network
+  mongodb-init:
+    image: mongo:7.0
+    container_name: payment_gateway_mongodb_init
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    command: >
+      mongosh --host mongodb:27017 -u admin -p password --eval "
+        try {
+          rs.initiate({
+            _id: 'rs0',
+            members: [{ _id: 0, host: 'mongodb:27017' }]
+          });
+          print('Replica set initialized');
+        } catch (e) {
+          if (e.codeName === 'AlreadyInitialized') {
+            print('Replica set already initialized');
+          } else {
+            throw e;
+          }
+        }
+      "      
+    networks:
+      - payment-network
   pgadmin:
     image: dpage/pgadmin4:8.9
     container_name: payment_gateway_pgadmin
